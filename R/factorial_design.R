@@ -13,6 +13,10 @@
 #'   If `NULL`, defaults to `1:n` for each factor.
 #' @param randomize Logical. If `TRUE`, randomize the run order. Default is
 #'   `FALSE`.
+#' @param replicates Positive integer. Number of times each treatment
+#'   combination is repeated. Default is `1` (no replication). Replicates
+#'   provide residual degrees of freedom, enabling statistical tests for
+#'   saturated designs.
 #'
 #' @return An object of class `"doe_design"`.
 #'
@@ -24,9 +28,18 @@
 #' )
 #' print(d)
 #'
+#' # With replicates
+#' d2 <- full_factorial(
+#'   factors      = c("A", "B"),
+#'   levels       = c(2, 2),
+#'   level_values = list(A = c(-1, 1), B = c(-1, 1)),
+#'   replicates   = 3L
+#' )
+#' d2$n_runs  # 12 (4 combinations x 3 replicates)
+#'
 #' @export
 full_factorial <- function(factors, levels, level_values = NULL,
-                            randomize = FALSE) {
+                            randomize = FALSE, replicates = 1L) {
   # --- Input validation ---
   if (!is.character(factors) || length(factors) == 0) {
     stop("`factors` must be a non-empty character vector.", call. = FALSE)
@@ -43,6 +56,12 @@ full_factorial <- function(factors, levels, level_values = NULL,
   }
   if (any(levels < 2)) {
     stop("All factors must have at least 2 levels.", call. = FALSE)
+  }
+
+  # Validate replicates
+  replicates <- as.integer(replicates)
+  if (length(replicates) != 1L || replicates < 1L) {
+    stop("`replicates` must be a positive integer.", call. = FALSE)
   }
 
   # --- Default level values ---
@@ -84,7 +103,13 @@ full_factorial <- function(factors, levels, level_values = NULL,
   dm <- dm[, rev(seq_len(ncol(dm))), drop = FALSE]  # restore original column order
   rownames(dm) <- NULL
 
-  # Randomize if requested
+  # --- Replicate rows before randomization ---
+  if (replicates > 1L) {
+    dm <- dm[rep(seq_len(nrow(dm)), times = replicates), , drop = FALSE]
+    rownames(dm) <- NULL
+  }
+
+  # --- Randomize run order (after replication so all replicates are shuffled) ---
   if (randomize) {
     dm <- dm[sample(nrow(dm)), , drop = FALSE]
     rownames(dm) <- NULL
@@ -93,6 +118,7 @@ full_factorial <- function(factors, levels, level_values = NULL,
   # --- Coded matrix (only for uniform 2-level designs) ---
   all_two_level <- all(levels == 2L)
   if (all_two_level) {
+    # Build coded matrix from the (possibly replicated) design matrix
     cm <- dm
     for (f in factors) {
       lo <- min(level_values[[f]])
@@ -112,7 +138,8 @@ full_factorial <- function(factors, levels, level_values = NULL,
     design_matrix = dm,
     coded_matrix  = cm,
     coded         = all_two_level,
-    design_type   = design_type
+    design_type   = design_type,
+    n_replicates  = replicates
   )
 
   validate_doe_design(design)

@@ -160,6 +160,7 @@ model_summary <- function(design) {
                          else NA_real_,
     effects_table      = extract_effects(design),
     n_runs             = design$n_runs,
-    degrees_of_freedom = s$df[2]
+    degrees_of_freedom = s$df[2],
+    is_saturated       = s$df[2] == 0L
   )
 }

@@ -10,23 +10,72 @@ app_ui <- function(factors = character(0)) {
     shiny::sidebarLayout(
       shiny::sidebarPanel(
         width = 3,
+
+        # --- Design Info ---
         shiny::h4("Design Info"),
         shiny::verbatimTextOutput("design_info"),
         shiny::hr(),
-        shiny::h4("Response Data"),
+
+        # --- Load Data ---
+        shiny::h4("Load Data"),
+        shiny::radioButtons(
+          inputId  = "upload_mode",
+          label    = "Upload mode:",
+          choices  = c(
+            "Full CSV (factors + response)"    = "full",
+            "Response only (append to design)" = "response_only"
+          ),
+          selected = "full"
+        ),
+        shiny::fileInput(
+          inputId     = "csv_file",
+          label       = "Upload CSV:",
+          accept      = ".csv",
+          placeholder = "No file selected"
+        ),
+        shiny::conditionalPanel(
+          condition = "input.upload_mode == 'full'",
+          shiny::checkboxGroupInput(
+            inputId  = "csv_factor_cols",
+            label    = "Factor columns:",
+            choices  = character(0)
+          ),
+          shiny::checkboxGroupInput(
+            inputId  = "csv_response_cols",
+            label    = "Response column(s):",
+            choices  = character(0)
+          )
+        ),
+        shiny::actionButton("load_csv_btn", "Load from CSV", class = "btn-info"),
+        shiny::hr(),
+
+        # --- Paste Response ---
+        shiny::h4("Paste Response"),
         shiny::textAreaInput(
           inputId     = "response_input",
-          label       = "Paste response values (comma- or newline-separated):",
+          label       = "Response values (comma- or newline-separated):",
           placeholder = "e.g. 42, 55, 48, 61, ...",
-          rows        = 5
+          rows        = 4
         ),
         shiny::textInput(
           inputId = "response_name",
           label   = "Response name",
           value   = "y"
         ),
+        shiny::selectInput(
+          inputId  = "interactions_level",
+          label    = "Model interactions:",
+          choices  = c(
+            "All"                = "all",
+            "Two-way only"       = "two_way",
+            "Main effects only"  = "none"
+          ),
+          selected = "two_way"
+        ),
         shiny::actionButton("fit_btn", "Fit Model", class = "btn-primary"),
         shiny::hr(),
+
+        # --- Optimization (shown only after model is fitted) ---
         shiny::conditionalPanel(
           condition = "output.model_fitted",
           shiny::h4("Optimization"),
@@ -61,15 +110,13 @@ app_ui <- function(factors = character(0)) {
           shiny::tabPanel(
             "Interactions",
             shiny::br(),
-            shiny::fluidRow(
-              shiny::column(6,
-                shiny::selectInput("int_factor1", "Factor 1 (x-axis):", choices = factors)
-              ),
-              shiny::column(6,
-                shiny::selectInput("int_factor2", "Factor 2 (lines):", choices = factors)
-              )
+            shiny::checkboxGroupInput(
+              inputId  = "int_factors",
+              label    = "Select 2\u20134 factors (1st = x-axis, 2nd = lines, 3rd = facet, 4th = facet grid):",
+              choices  = factors,
+              selected = factors[seq_len(min(2L, length(factors)))]
             ),
-            shiny::plotOutput("interaction_plot", height = "400px")
+            shiny::plotOutput("interaction_plot", height = "450px")
           ),
           shiny::tabPanel(
             "Pareto Diagram",

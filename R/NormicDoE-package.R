@@ -19,14 +19,15 @@
 
 ## usethis namespace: start
 #' @importFrom ggplot2 ggplot aes geom_bar geom_line geom_point geom_vline
-#'   coord_flip labs theme_bw scale_color_discrete
+#'   coord_flip labs theme_bw scale_color_discrete facet_wrap facet_grid
 #' @importFrom shiny shinyApp fluidPage titlePanel sidebarLayout sidebarPanel
 #'   mainPanel tabsetPanel tabPanel selectInput sliderInput numericInput
 #'   textAreaInput textInput actionButton verbatimTextOutput plotOutput
-#'   renderText renderPlot renderPrint observeEvent reactive reactiveValues
-#'   req outputOptions conditionalPanel showNotification fluidRow column h4 hr
-#'   br
+#'   renderText renderPlot renderPrint observeEvent observe reactive
+#'   reactiveValues req outputOptions conditionalPanel showNotification
+#'   fluidRow column h4 hr br fileInput checkboxGroupInput radioButtons
+#'   updateSelectInput updateCheckboxGroupInput
 #' @importFrom stats lm as.formula coef qt optim pf predict aggregate setNames
-#' @importFrom utils write.csv head combn
+#' @importFrom utils write.csv head combn read.csv
 ## usethis namespace: end
 NULL

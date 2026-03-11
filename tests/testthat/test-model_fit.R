@@ -55,7 +55,7 @@ test_that("model_summary returns expected keys", {
   d <- fit_model(d, response = c(1, 2, 3, 4))
   ms <- model_summary(d)
   expect_true(all(c("r_squared", "adj_r_squared", "rmse", "effects_table",
-                     "n_runs", "degrees_of_freedom") %in% names(ms)))
+                     "n_runs", "degrees_of_freedom", "is_saturated") %in% names(ms)))
 })
 
 test_that("model_summary r_squared is 1 for perfect fit", {
@@ -78,4 +78,39 @@ test_that("fit_model errors on wrong response length", {
 test_that("assert_model_fitted stops without model", {
   d <- make_2level_design()
   expect_error(extract_effects(d), regexp = "fit_model")
+})
+
+test_that("model_summary is_saturated = TRUE for 2^2 with all interactions", {
+  # 2^2 with 4 runs and 4 parameters (intercept, A, B, A:B) => df_residual = 0
+  d <- make_2level_design()
+  d <- fit_model(d, response = c(1, 2, 3, 4), interactions = "all")
+  ms <- model_summary(d)
+  expect_true(ms$is_saturated)
+  expect_equal(ms$degrees_of_freedom, 0L)
+})
+
+test_that("model_summary is_saturated = FALSE for 2^3 with two_way interactions", {
+  # 2^3 = 8 runs; two_way uses 7 params (intercept + 3 main + 3 two-way) => df = 1
+  d <- full_factorial(
+    factors      = c("A", "B", "C"),
+    levels       = c(2, 2, 2),
+    level_values = list(A = c(-1, 1), B = c(-1, 1), C = c(-1, 1))
+  )
+  d <- fit_model(d, response = c(1, 2, 3, 4, 5, 6, 7, 8), interactions = "two_way")
+  ms <- model_summary(d)
+  expect_false(ms$is_saturated)
+})
+
+test_that("model_summary is_saturated = FALSE for replicated 2^2 design", {
+  # 2^2 with 2 replicates = 8 runs; all interactions uses 4 params => df = 4
+  d <- full_factorial(
+    factors      = c("A", "B"),
+    levels       = c(2, 2),
+    level_values = list(A = c(-1, 1), B = c(-1, 1)),
+    replicates   = 2L
+  )
+  d <- fit_model(d, response = c(1, 2, 3, 4, 1.1, 2.1, 3.1, 4.1), interactions = "all")
+  ms <- model_summary(d)
+  expect_false(ms$is_saturated)
+  expect_gt(ms$degrees_of_freedom, 0L)
 })

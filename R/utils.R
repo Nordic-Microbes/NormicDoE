@@ -89,6 +89,16 @@ assert_two_level <- function(design) {
   invisible(design)
 }
 
+#' Check whether a fitted model is saturated (df_residual == 0)
+#'
+#' A saturated model has as many parameters as observations, leaving zero
+#' residual degrees of freedom. Standard errors and p-values are undefined.
+#' @noRd
+is_saturated <- function(design) {
+  if (is.null(design$model)) return(FALSE)
+  summary(design$model)$df[2] == 0L
+}
+
 # ---------------------------------------------------------------------------
 # Plot helpers (return ggplot objects; used by Shiny server)
 # ---------------------------------------------------------------------------
@@ -125,32 +135,50 @@ plot_main_effects <- function(design, factor_name) {
     ggplot2::theme_bw()
 }
 
-#' Interaction plot for two factors
+#' Interaction plot for two to four factors
+#'
+#' Visualizes mean response across factor level combinations.
+#' - 2 factors: lines plot (x = factor1, colour = factor2)
+#' - 3 factors: lines plot with `facet_wrap` by factor3
+#' - 4 factors: lines plot with `facet_grid(factor3 ~ factor4)`
 #'
 #' @param design A `doe_design` object with response data.
 #' @param factor1 Character. Factor on x-axis.
-#' @param factor2 Character. Factor defining line groups.
+#' @param factor2 Character. Factor defining line colour/groups.
+#' @param factor3 Character or `NULL`. Third factor for facet panels.
+#' @param factor4 Character or `NULL`. Fourth factor for facet grid rows
+#'   (requires `factor3`).
 #' @return A ggplot2 object.
 #' @noRd
-plot_interaction <- function(design, factor1, factor2) {
+plot_interaction <- function(design, factor1, factor2,
+                              factor3 = NULL, factor4 = NULL) {
   assert_model_fitted(design)
+
+  # Collect active factors (drop NULLs)
+  all_factors <- c(factor1, factor2, factor3, factor4)
+  all_factors <- all_factors[!vapply(all_factors, is.null, logical(1L))]
+  n_active    <- length(all_factors)
 
   df <- design$design_matrix
   df[[design$response_name]] <- design$response
 
-  means <- stats::aggregate(
+  # Dynamic aggregation over all grouping factors
+  by_list        <- lapply(all_factors, function(f) df[[f]])
+  names(by_list) <- all_factors
+  means          <- stats::aggregate(
     df[[design$response_name]],
-    by = list(f1 = df[[factor1]], f2 = df[[factor2]]),
+    by  = by_list,
     FUN = mean
   )
-  names(means) <- c(factor1, factor2, "mean_response")
+  names(means)[ncol(means)] <- "mean_response"
+
   means[[factor2]] <- as.factor(means[[factor2]])
 
-  ggplot2::ggplot(
+  p <- ggplot2::ggplot(
     means,
     ggplot2::aes(
-      x = .data[[factor1]],
-      y = .data$mean_response,
+      x     = .data[[factor1]],
+      y     = .data$mean_response,
       color = .data[[factor2]],
       group = .data[[factor2]]
     )
@@ -158,12 +186,25 @@ plot_interaction <- function(design, factor1, factor2) {
     ggplot2::geom_point(size = 3) +
     ggplot2::geom_line() +
     ggplot2::labs(
-      title = paste("Interaction:", factor1, "\u00d7", factor2),
-      x = factor1,
-      y = design$response_name,
+      title = paste("Interaction:", paste(all_factors, collapse = " \u00d7 ")),
+      x     = factor1,
+      y     = design$response_name,
       color = factor2
     ) +
     ggplot2::theme_bw()
+
+  if (n_active == 3L) {
+    means[[factor3]] <- as.factor(means[[factor3]])
+    p <- p + ggplot2::facet_wrap(stats::as.formula(paste("~", factor3)))
+  } else if (n_active >= 4L) {
+    means[[factor3]] <- as.factor(means[[factor3]])
+    means[[factor4]] <- as.factor(means[[factor4]])
+    p <- p + ggplot2::facet_grid(
+      stats::as.formula(paste(factor3, "~", factor4))
+    )
+  }
+
+  p
 }
 
 #' Pareto diagram of standardized effects
@@ -175,26 +216,48 @@ plot_interaction <- function(design, factor1, factor2) {
 plot_pareto <- function(design, alpha = 0.05) {
   assert_model_fitted(design)
 
-  s <- summary(design$model)
-  coef_table <- as.data.frame(s$coefficients)
-  coef_table$term <- rownames(coef_table)
-  coef_table <- coef_table[coef_table$term != "(Intercept)", , drop = FALSE]
-
-  coef_table$abs_t <- abs(coef_table[, "t value"])
-  coef_table <- coef_table[order(coef_table$abs_t, decreasing = FALSE), ]
-  coef_table$term <- factor(coef_table$term, levels = coef_table$term)
-
+  s        <- summary(design$model)
   df_resid <- s$df[2]
+
+  coef_table       <- as.data.frame(s$coefficients)
+  coef_table$term  <- rownames(coef_table)
+  coef_table       <- coef_table[coef_table$term != "(Intercept)", , drop = FALSE]
+  coef_table$abs_t <- abs(coef_table[, "t value"])
+  coef_table       <- coef_table[order(coef_table$abs_t, decreasing = FALSE), ]
+  coef_table$term  <- factor(coef_table$term, levels = coef_table$term)
+
+  if (df_resid <= 0L) {
+    warning(
+      "Model is saturated (df_residual = 0). The Pareto chart cannot display ",
+      "a significance reference line. Use 'Two-way only' or 'Main effects only' ",
+      "interactions, or add replicates to obtain residual degrees of freedom.",
+      call. = FALSE
+    )
+    return(
+      ggplot2::ggplot(coef_table,
+                      ggplot2::aes(x = .data$abs_t, y = .data$term)) +
+        ggplot2::geom_bar(stat = "identity", fill = "steelblue") +
+        ggplot2::labs(
+          title   = "Pareto Chart of Standardized Effects",
+          x       = "|Standardized Effect| (t-value)",
+          y       = "Term",
+          caption = "Saturated model \u2014 no significance line (df_residual = 0)"
+        ) +
+        ggplot2::theme_bw()
+    )
+  }
+
   t_crit <- stats::qt(1 - alpha / 2, df = df_resid)
 
   ggplot2::ggplot(coef_table, ggplot2::aes(x = .data$abs_t, y = .data$term)) +
     ggplot2::geom_bar(stat = "identity", fill = "steelblue") +
     ggplot2::geom_vline(xintercept = t_crit, linetype = "dashed", color = "red") +
     ggplot2::labs(
-      title = "Pareto Chart of Standardized Effects",
-      x = "|Standardized Effect| (t-value)",
-      y = "Term",
-      caption = paste0("Red line = t\u2080.", round(alpha / 2, 3), " (df = ", df_resid, ")")
+      title   = "Pareto Chart of Standardized Effects",
+      x       = "|Standardized Effect| (t-value)",
+      y       = "Term",
+      caption = paste0("Red line = t\u2080.", round(alpha / 2, 3),
+                       " (df = ", df_resid, ")")
     ) +
     ggplot2::theme_bw()
 }

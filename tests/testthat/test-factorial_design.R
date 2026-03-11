@@ -93,3 +93,52 @@ test_that("error on mismatched level_values length", {
     regexp = "3 values"
   )
 })
+
+test_that("replicates = 2 doubles the number of runs", {
+  d <- full_factorial(
+    factors      = c("A", "B"),
+    levels       = c(2, 2),
+    level_values = list(A = c(-1, 1), B = c(-1, 1)),
+    replicates   = 2L
+  )
+  expect_equal(d$n_runs, 8L)
+  expect_equal(d$n_replicates, 2L)
+})
+
+test_that("replicated design has all combos present exactly n times", {
+  d <- full_factorial(
+    factors      = c("A", "B"),
+    levels       = c(2, 2),
+    level_values = list(A = c(-1, 1), B = c(-1, 1)),
+    replicates   = 3L
+  )
+  dm <- d$design_matrix
+  combos <- paste(dm$A, dm$B)
+  tbl <- table(combos)
+  expect_equal(nrow(dm), 12L)
+  expect_true(all(tbl == 3L))
+})
+
+test_that("coded_matrix is also replicated", {
+  d <- full_factorial(
+    factors      = c("A", "B"),
+    levels       = c(2, 2),
+    level_values = list(A = c(10, 20), B = c(1, 2)),
+    replicates   = 2L
+  )
+  expect_equal(nrow(d$coded_matrix), 8L)
+  expect_true(all(d$coded_matrix$A %in% c(-1, 1)))
+  expect_true(all(d$coded_matrix$B %in% c(-1, 1)))
+})
+
+test_that("replicates = 0 errors", {
+  expect_error(
+    full_factorial(
+      factors      = c("A"),
+      levels       = 2,
+      level_values = list(A = c(-1, 1)),
+      replicates   = 0L
+    ),
+    regexp = "positive integer"
+  )
+})

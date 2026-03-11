@@ -17,7 +17,8 @@
 #' @return An object of class `"doe_design"`.
 #' @noRd
 new_doe_design <- function(factors, levels, level_values, design_matrix,
-                            coded_matrix, coded, design_type) {
+                            coded_matrix, coded, design_type,
+                            n_replicates = 1L) {
   structure(
     list(
       factors       = factors,
@@ -32,7 +33,8 @@ new_doe_design <- function(factors, levels, level_values, design_matrix,
       model         = NULL,
       model_formula = NULL,
       n_runs        = nrow(design_matrix),
-      design_type   = design_type
+      design_type   = design_type,
+      n_replicates  = as.integer(n_replicates)
     ),
     class = "doe_design"
   )
@@ -70,7 +72,11 @@ print.doe_design <- function(x, ...) {
   cat("Design of Experiments: Full Factorial\n")
   cat("  Type   :", x$design_type, "\n")
   cat("  Factors:", x$n_factors, "\n")
-  cat("  Runs   :", x$n_runs, "\n\n")
+  cat("  Runs   :", x$n_runs, "\n")
+  if (!is.null(x$n_replicates) && x$n_replicates > 1L) {
+    cat("  Replicates:", x$n_replicates, "\n")
+  }
+  cat("\n")
 
   cat("Factor summary:\n")
   for (i in seq_along(x$factors)) {

@@ -16,6 +16,7 @@ test_that("new_doe_design creates a valid doe_design object", {
   expect_equal(d$n_runs, 4L)
   expect_true(d$coded)
   expect_null(d$model)
+  expect_equal(d$n_replicates, 1L)
 })
 
 test_that("print.doe_design returns invisibly and outputs text", {
