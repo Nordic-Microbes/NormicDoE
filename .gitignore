@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+NAMESPACE
+man/
+*.tar.gz
+*.so
+*.dll
+
+/.quarto/
+**/*.quarto_ipynb
