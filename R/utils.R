@@ -167,8 +167,8 @@ plot_all_main_effects <- function(design) {
     long_df,
     ggplot2::aes(x = .data$level, y = .data$mean_response, group = 1)
   ) +
-    ggplot2::geom_point(size = 3) +
-    ggplot2::geom_line() +
+    ggplot2::geom_point(pch = 21, size = 3, fill = ggNormic::normic_colors$greens[[2]]) +
+    ggplot2::geom_line(col = ggNormic::normic_colors$greens[[2]]) +
     ggplot2::facet_wrap(~ factor, scales = "free_x") +
     ggplot2::labs(
       title = "All Main Effects",
