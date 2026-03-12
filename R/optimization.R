@@ -45,7 +45,13 @@ optimize_response <- function(design, goal = "max", target = NULL,
     if (!is.null(constraints) && !is.null(constraints[[f]])) {
       constraints[[f]]
     } else {
-      range(design$level_values[[f]])
+      lv <- design$level_values[[f]]
+      r  <- suppressWarnings(as.numeric(range(lv)))
+      if (anyNA(r))
+        stop(sprintf(
+          "Factor '%s' has non-numeric levels and cannot be optimised.", f),
+          call. = FALSE)
+      r
     }
   })
   names(ranges) <- design$factors
@@ -77,7 +83,7 @@ optimize_response <- function(design, goal = "max", target = NULL,
   )
 
   # Grid search to find a good starting point
-  grid_size  <- min(11L, 5L)   # points per factor; keep it small for >3 factors
+  grid_size  <- if (length(design$factors) > 3L) 5L else 11L
   grid_lists <- lapply(ranges, function(r) seq(r[1], r[2], length.out = grid_size))
   grid       <- expand.grid(grid_lists)
 

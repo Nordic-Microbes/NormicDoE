@@ -47,3 +47,19 @@ test_that("predicted_response at max is >= predicted at any design point", {
   preds <- stats::predict(d$model, newdata = d$coded_matrix)
   expect_true(res$predicted_response >= max(preds) - 1e-6)
 })
+
+test_that("optimize_response errors clearly on categorical factor", {
+  # Simulate a CSV-loaded design where level_values contains character strings
+  dm <- data.frame(A = c("low", "high"), stringsAsFactors = FALSE)
+  d <- NormicDoE:::new_doe_design(
+    factors       = "A",
+    levels        = 2L,
+    level_values  = list(A = c("low", "high")),
+    design_matrix = dm,
+    coded_matrix  = NULL,
+    coded         = FALSE,
+    design_type   = "full_factorial_multilevel"
+  )
+  d <- fit_model(d, response = c(1, 2), interactions = "none")
+  expect_error(optimize_response(d), regexp = "non-numeric")
+})
