@@ -132,7 +132,10 @@ plot_main_effects <- function(design, factor_name) {
       x = factor_name,
       y = design$response_name
     ) +
-    ggplot2::theme_bw()
+    tryCatch(
+      if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
+      error = function(e) ggplot2::theme_bw()
+    )
 }
 
 #' Interaction plot for two to four factors
@@ -191,7 +194,10 @@ plot_interaction <- function(design, factor1, factor2,
       y     = design$response_name,
       color = factor2
     ) +
-    ggplot2::theme_bw()
+    tryCatch(
+      if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
+      error = function(e) ggplot2::theme_bw()
+    )
 
   if (n_active == 3L) {
     means[[factor3]] <- as.factor(means[[factor3]])
@@ -201,6 +207,13 @@ plot_interaction <- function(design, factor1, factor2,
     means[[factor4]] <- as.factor(means[[factor4]])
     p <- p + ggplot2::facet_grid(
       stats::as.formula(paste(factor3, "~", factor4))
+    )
+  }
+
+  if (requireNamespace("ggNormic", quietly = TRUE)) {
+    p <- tryCatch(
+      p + ggNormic::scale_color_normic_d(),
+      error = function(e) p
     )
   }
 
@@ -243,7 +256,10 @@ plot_pareto <- function(design, alpha = 0.05) {
           y       = "Term",
           caption = "Saturated model \u2014 no significance line (df_residual = 0)"
         ) +
-        ggplot2::theme_bw()
+        tryCatch(
+      if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
+      error = function(e) ggplot2::theme_bw()
+    )
     )
   }
 
@@ -259,5 +275,8 @@ plot_pareto <- function(design, alpha = 0.05) {
       caption = paste0("Red line = t\u2080.", round(alpha / 2, 3),
                        " (df = ", df_resid, ")")
     ) +
-    ggplot2::theme_bw()
+    tryCatch(
+      if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
+      error = function(e) ggplot2::theme_bw()
+    )
 }
