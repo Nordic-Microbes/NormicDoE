@@ -7,7 +7,8 @@ app_server <- function(init_design = NULL) {
   function(input, output, session) {
 
     # Reactive state: current doe_design (possibly pre-loaded)
-    rv <- shiny::reactiveValues(design = init_design)
+    rv <- shiny::reactiveValues(design = init_design,
+                               last_bayes_suggestion = NULL)
 
     # -------------------------------------------------------------------------
     # Design info panel
@@ -347,6 +348,57 @@ app_server <- function(init_design = NULL) {
             cat(sprintf("  %-20s %.4f\n", nm, res$optimal_settings[[nm]]))
           }
         })
+      }
+    })
+    # -------------------------------------------------------------------------
+    # Bayesian optimisation
+    # -------------------------------------------------------------------------
+    shiny::observeEvent(input$bayes_suggest_btn, {
+      d   <- rv$design
+      shiny::req(!is.null(d$model))
+      tgt <- if (input$bayes_goal == "target") input$bayes_target else NULL
+      res <- tryCatch(
+        bayes_suggest(d, goal = input$bayes_goal, target = tgt),
+        error = function(e) {
+          shiny::showNotification(e$message, type = "error")
+          NULL
+        }
+      )
+      if (!is.null(res)) {
+        rv$last_bayes_suggestion <- res
+        output$bayes_suggestion <- shiny::renderPrint({
+          cat("Suggested next run:
+")
+          for (nm in names(res)) {
+            cat(sprintf("  %-20s %.4f
+", nm, res[[nm]]))
+          }
+        })
+      }
+    })
+
+    shiny::observeEvent(input$bayes_update_btn, {
+      d <- rv$design
+      shiny::req(!is.null(d$model),
+                 !is.null(rv$last_bayes_suggestion),
+                 !is.na(input$bayes_new_resp))
+      nd <- tryCatch(
+        bayes_update(d,
+                     new_settings  = rv$last_bayes_suggestion,
+                     new_response  = input$bayes_new_resp),
+        error = function(e) {
+          shiny::showNotification(e$message, type = "error")
+          NULL
+        }
+      )
+      if (!is.null(nd)) {
+        rv$design <- nd
+        output$bayes_update_status <- shiny::renderPrint({
+          cat("Model updated. Total runs:", nd$n_runs, "
+")
+        })
+        shiny::showNotification("Model updated with new observation.",
+                                type = "message")
       }
     })
   }

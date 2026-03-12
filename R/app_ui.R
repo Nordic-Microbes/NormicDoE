@@ -132,6 +132,53 @@ app_ui <- function(factors = character(0)) {
             "Model Summary",
             shiny::br(),
             shiny::verbatimTextOutput("model_summary_text")
+          ),
+          shiny::tabPanel(
+            "Bayesian Opt.",
+            shiny::br(),
+            shiny::conditionalPanel(
+              condition = "output.model_fitted",
+              shiny::fluidRow(
+                shiny::column(
+                  width = 6,
+                  shiny::selectInput(
+                    inputId  = "bayes_goal",
+                    label    = "Goal:",
+                    choices  = c(
+                      "Maximise" = "max",
+                      "Minimise" = "min",
+                      "Target"   = "target"
+                    ),
+                    selected = "max"
+                  ),
+                  shiny::conditionalPanel(
+                    condition = "input.bayes_goal == 'target'",
+                    shiny::numericInput("bayes_target", "Target value:", value = 0)
+                  ),
+                  shiny::actionButton("bayes_suggest_btn", "Suggest Next Run",
+                                      class = "btn-success")
+                ),
+                shiny::column(
+                  width = 6,
+                  shiny::verbatimTextOutput("bayes_suggestion")
+                )
+              ),
+              shiny::hr(),
+              shiny::h5("Update model with new observation"),
+              shiny::fluidRow(
+                shiny::column(
+                  width = 6,
+                  shiny::numericInput("bayes_new_resp", "Observed response:",
+                                      value = NA)
+                ),
+                shiny::column(
+                  width = 6,
+                  shiny::actionButton("bayes_update_btn", "Update Model",
+                                      class = "btn-primary")
+                )
+              ),
+              shiny::verbatimTextOutput("bayes_update_status")
+            )
           )
         )
       )
