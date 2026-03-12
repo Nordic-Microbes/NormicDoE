@@ -7,7 +7,7 @@ app_server <- function(init_design = NULL) {
   function(input, output, session) {
 
     # Reactive state: current doe_design (possibly pre-loaded)
-    rv <- shiny::reactiveValues(design = init_design)
+    rv <- shiny::reactiveValues(design = init_design, comparison_designs = list())
 
     # -------------------------------------------------------------------------
     # Design info panel
@@ -348,6 +348,70 @@ app_server <- function(init_design = NULL) {
           }
         })
       }
+    })
+    # -------------------------------------------------------------------------
+    # Comparison
+    # -------------------------------------------------------------------------
+    shiny::observeEvent(input$add_compare_btn, {
+      d <- rv$design
+      shiny::req(!is.null(d$model), input$compare_csv)
+      df <- tryCatch(
+        utils::read.csv(input$compare_csv$datapath, stringsAsFactors = FALSE),
+        error = function(e) {
+          shiny::showNotification(e$message, type = "error")
+          NULL
+        }
+      )
+      if (is.null(df)) return()
+      numeric_cols <- names(df)[vapply(df, is.numeric, logical(1L))]
+      if (length(numeric_cols) == 0L) {
+        shiny::showNotification("No numeric columns in CSV.", type = "error")
+        return()
+      }
+      resp_vals <- df[[numeric_cols[1]]]
+      if (length(resp_vals) != d$n_runs) {
+        shiny::showNotification(
+          paste0("CSV has ", length(resp_vals), " rows; design needs ",
+                 d$n_runs, "."),
+          type = "error"
+        )
+        return()
+      }
+      lbl <- trimws(input$compare_label)
+      if (nchar(lbl) == 0L)
+        lbl <- paste0("Sample ", length(rv$comparison_designs) + 2L)
+      nd <- tryCatch(
+        fit_model(d,
+                  response      = resp_vals,
+                  response_name = numeric_cols[1],
+                  interactions  = input$interactions_level),
+        error = function(e) {
+          shiny::showNotification(e$message, type = "error")
+          NULL
+        }
+      )
+      if (is.null(nd)) return()
+      rv$comparison_designs[[lbl]] <- nd
+      shiny::showNotification(paste("Added sample:", lbl), type = "message")
+    })
+
+    output$compare_status <- shiny::renderPrint({
+      n <- length(rv$comparison_designs)
+      if (n == 0L)
+        cat("No comparison samples loaded.
+")
+      else
+        cat(n, "sample(s):", paste(names(rv$comparison_designs),
+                                   collapse = ", "), "
+")
+    })
+
+    output$comparison_plot <- shiny::renderPlot({
+      shiny::req(length(rv$comparison_designs) > 0L,
+                 !is.null(rv$design$model))
+      all_designs <- c(list(Primary = rv$design), rv$comparison_designs)
+      df <- do.call(compare_effects, all_designs)
+      plot_effect_comparison(df)
     })
   }
 }

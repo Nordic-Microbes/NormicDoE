@@ -20,6 +20,7 @@
 ## usethis namespace: start
 #' @importFrom ggplot2 ggplot aes geom_bar geom_line geom_point geom_vline
 #'   coord_flip labs theme_bw scale_color_discrete facet_wrap facet_grid
+#'   position_dodge geom_errorbar
 #' @importFrom shiny shinyApp fluidPage titlePanel sidebarLayout sidebarPanel
 #'   mainPanel tabsetPanel tabPanel selectInput sliderInput numericInput
 #'   textAreaInput textInput actionButton verbatimTextOutput plotOutput
