@@ -56,10 +56,10 @@ app_server <- function(init_design = NULL) {
       )
       if (is.null(df)) return()
       cols <- names(df)
-      shiny::updateCheckboxGroupInput(session, "csv_factor_cols",
-                                      choices = cols, selected = NULL)
-      shiny::updateCheckboxGroupInput(session, "csv_response_cols",
-                                      choices = cols, selected = NULL)
+      shiny::updateSelectizeInput(session, "csv_factor_cols",
+                                  choices = cols, selected = NULL)
+      shiny::updateSelectizeInput(session, "csv_response_cols",
+                                  choices = cols, selected = NULL)
     })
 
     # -------------------------------------------------------------------------

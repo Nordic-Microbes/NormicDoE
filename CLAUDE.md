@@ -1,4 +1,4 @@
-﻿# NormicDoE — Developer Guide
+# NormicDoE — Developer Guide
 
 R package for designing and analysing Design of Experiments (DoE) setups.
 Follows [r-pkgs.org](https://r-pkgs.org/) best practices. MIT licence.
@@ -17,7 +17,11 @@ devtools::test()
 # Full check (target: 0 errors, 0 warnings, 1 note — timestamp only)
 devtools::check()
 
-R 4.5.1 at /c/Program Files/R/R-4.5.1/bin/Rscript
+R 4.5.2 at /c/Program Files/R/R-4.5.2/bin/Rscript
+
+File editing policy
+Never use workarounds (temp scripts, shell text replacement, etc.) to edit files.
+If the standard Edit tool fails, stop and inform the user.
 
 Architecture
 R/
