@@ -354,5 +354,41 @@ app_server <- function(init_design = NULL) {
         })
       }
     })
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Comparison — fold change relative to reference
+    # -------------------------------------------------------------------------
+    output$reference_inputs <- shiny::renderUI({
+      d <- rv$design
+      shiny::req(!is.null(d$model))
+      lapply(d$factors, function(f) {
+        shiny::selectInput(
+          inputId  = paste0("ref_factor_", f),
+          label    = f,
+          choices  = as.character(d$level_values[[f]]),
+          selected = as.character(d$level_values[[f]][[1L]])
+        )
+      })
+    })
+
+    output$fold_change_plot <- shiny::renderPlot({
+      d <- rv$design
+      shiny::req(!is.null(d$model))
+      ref_parts <- vapply(d$factors, function(f) {
+        val <- input[[paste0("ref_factor_", f)]]
+        shiny::req(!is.null(val))
+        paste0(f, "=", val)
+      }, character(1L))
+      reference_label <- paste(ref_parts, collapse = ", ")
+      fc <- tryCatch(
+        compute_fold_changes(d, reference_label),
+        error = function(e) {
+          shiny::showNotification(e$message, type = "error")
+          NULL
+        }
+      )
+      shiny::req(!is.null(fc))
+      plot_fold_changes(fc)
+    })
   }
 }

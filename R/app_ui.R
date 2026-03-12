@@ -157,6 +157,16 @@ app_ui <- function(factors = character(0)) {
             "Model Summary",
             shiny::br(),
             shiny::verbatimTextOutput("model_summary_text")
+          ),
+          shiny::tabPanel(
+            "Comparison",
+            shiny::br(),
+            shiny::conditionalPanel(
+              condition = "output.model_fitted",
+              shiny::h4("Reference combination"),
+              shiny::uiOutput("reference_inputs"),
+              shiny::plotOutput("fold_change_plot", height = "450px")
+            )
           )
         )
       )
