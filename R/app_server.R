@@ -346,10 +346,10 @@ app_server <- function(init_design = NULL) {
         output$opt_result <- shiny::renderPrint({
           cat("Goal:", res$goal, "\n")
           if (!is.null(res$target)) cat("Target:", res$target, "\n")
-          cat("Predicted response:", round(res$predicted_response, 4), "\n\n")
+          cat("Predicted response:", format(res$predicted_response, digits = 3), "\n\n")
           cat("Optimal settings:\n")
           for (nm in names(res$optimal_settings)) {
-            cat(sprintf("  %-20s %.4f\n", nm, res$optimal_settings[[nm]]))
+            cat(sprintf("  %-20s %s\n", nm, res$optimal_settings[[nm]]))
           }
         })
       }

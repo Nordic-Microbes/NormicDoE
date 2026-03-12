@@ -18,6 +18,7 @@
 "_PACKAGE"
 
 ## usethis namespace: start
+#' @importFrom bslib bs_theme
 #' @importFrom ggplot2 ggplot aes geom_bar geom_line geom_point geom_vline
 #'   coord_flip labs theme_bw scale_color_discrete facet_wrap facet_grid
 #' @importFrom shiny shinyApp fluidPage titlePanel sidebarLayout sidebarPanel
