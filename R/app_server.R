@@ -56,10 +56,10 @@ app_server <- function(init_design = NULL) {
       )
       if (is.null(df)) return()
       cols <- names(df)
-      shiny::updateCheckboxGroupInput(session, "csv_factor_cols",
-                                      choices = cols, selected = NULL)
-      shiny::updateCheckboxGroupInput(session, "csv_response_cols",
-                                      choices = cols, selected = NULL)
+      shiny::updateSelectizeInput(session, "csv_factor_cols",
+                                  choices = cols, selected = NULL)
+      shiny::updateSelectizeInput(session, "csv_response_cols",
+                                  choices = cols, selected = NULL)
     })
 
     # -------------------------------------------------------------------------
@@ -267,6 +267,11 @@ app_server <- function(init_design = NULL) {
     # -------------------------------------------------------------------------
     # Visualizations
     # -------------------------------------------------------------------------
+
+    output$all_main_effects_plot <- shiny::renderPlot({
+      d <- fitted_design()
+      plot_all_main_effects(d)
+    })
 
     output$main_effects_plot <- shiny::renderPlot({
       d <- fitted_design()

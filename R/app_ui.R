@@ -39,15 +39,17 @@ app_ui <- function(factors = character(0)) {
         ),
         shiny::conditionalPanel(
           condition = "input.upload_mode == 'full'",
-          shiny::checkboxGroupInput(
+          shiny::selectizeInput(
             inputId  = "csv_factor_cols",
             label    = "Factor columns:",
-            choices  = character(0)
+            choices  = character(0),
+            multiple = TRUE
           ),
-          shiny::checkboxGroupInput(
+          shiny::selectizeInput(
             inputId  = "csv_response_cols",
             label    = "Response column(s):",
-            choices  = character(0)
+            choices  = character(0),
+            multiple = TRUE
           )
         ),
         shiny::actionButton("load_csv_btn", "Load from CSV", class = "btn-primary"),
@@ -104,12 +106,31 @@ app_ui <- function(factors = character(0)) {
           shiny::tabPanel(
             "Main Effects",
             shiny::br(),
-            shiny::selectInput(
-              inputId = "main_factor",
-              label   = "Select factor:",
-              choices = factors
-            ),
-            shiny::plotOutput("main_effects_plot", height = "400px")
+            bslib::card(
+              bslib::card_body(
+                shiny::tabsetPanel(
+                  id   = "main_view",
+                  type = "pills",
+                  shiny::tabPanel(
+                    "Overview (all factors)",
+                    value = "overview",
+                    shiny::br(),
+                    shiny::plotOutput("all_main_effects_plot", height = "400px")
+                  ),
+                  shiny::tabPanel(
+                    "Single factor",
+                    value = "single",
+                    shiny::br(),
+                    shiny::selectInput(
+                      inputId = "main_factor",
+                      label   = "Select factor:",
+                      choices = factors
+                    ),
+                    shiny::plotOutput("main_effects_plot", height = "400px")
+                  )
+                )
+              )
+            )
           ),
           shiny::tabPanel(
             "Interactions",

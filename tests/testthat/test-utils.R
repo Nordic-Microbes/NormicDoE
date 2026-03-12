@@ -101,3 +101,19 @@ test_that("plot_pareto warns on saturated model and still returns a ggplot", {
   )
   expect_s3_class(p, "gg")
 })
+
+# ---------------------------------------------------------------------------
+# plot_all_main_effects()
+# ---------------------------------------------------------------------------
+
+test_that("plot_all_main_effects returns a ggplot for a fitted design", {
+  d <- make_fitted_3f()
+  p <- NormicDoE:::plot_all_main_effects(d)
+  expect_s3_class(p, "gg")
+})
+
+test_that("plot_all_main_effects works for 2-factor design", {
+  d <- make_fitted_2f()
+  p <- NormicDoE:::plot_all_main_effects(d)
+  expect_s3_class(p, "gg")
+})

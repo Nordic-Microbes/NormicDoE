@@ -138,6 +138,46 @@ plot_main_effects <- function(design, factor_name) {
     )
 }
 
+#' All-factors main effects overview
+#'
+#' @param design A `doe_design` object with response data.
+#' @return A ggplot2 object with one panel per factor (facet_wrap).
+#' @noRd
+plot_all_main_effects <- function(design) {
+  assert_model_fitted(design)
+
+  df <- design$design_matrix
+  df[[design$response_name]] <- design$response
+
+  rows <- lapply(design$factors, function(f) {
+    m <- stats::aggregate(
+      df[[design$response_name]],
+      by  = list(level = df[[f]]),
+      FUN = mean
+    )
+    names(m) <- c("level", "mean_response")
+    m$factor  <- f
+    m
+  })
+  long_df        <- do.call(rbind, rows)
+  long_df$level  <- as.character(long_df$level)
+  long_df$factor <- factor(long_df$factor, levels = design$factors)
+
+  ggplot2::ggplot(
+    long_df,
+    ggplot2::aes(x = .data$level, y = .data$mean_response, group = 1)
+  ) +
+    ggplot2::geom_point(size = 3) +
+    ggplot2::geom_line() +
+    ggplot2::facet_wrap(~ factor, scales = "free_x") +
+    ggplot2::labs(
+      title = "All Main Effects",
+      x     = "Level",
+      y     = design$response_name
+    ) +
+    ggplot2::theme_bw()
+}
+
 #' Interaction plot for two to four factors
 #'
 #' Visualizes mean response across factor level combinations.
