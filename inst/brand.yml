@@ -1,18 +1,55 @@
 meta:
   name: Normic
+
 color:
   palette:
-    green:  "#006f32"
-    yellow: "#ffcd00"
-    purple: "#946aab"
+    # Greens
+    green:   "#006f32"
+    green-2: "#70b78d"
+    green-3: "#a1d1b3"
+    green-4: "#e1efe3"
+    # Yellows
+    yellow:   "#ffcd00"
+    yellow-2: "#ffe37e"
+    yellow-3: "#fff0af"
+    yellow-4: "#fffbdc"
+    # Purples
+    purple:   "#946aab"
+    purple-2: "#c7a6cf"
+    purple-3: "#e8cae2"
+    purple-4: "#f2e1f0"
+    # Blues
     blue:   "#2e5558"
-    brown:  "#3e3d33"
-    red:    "#e52519"
-  foreground: "#3e3d33"
-  background: "#ffffff"
-  primary: "#006f32"
-  secondary: "#2e5558"
+    blue-2: "#408688"
+    blue-3: "#b5ddde"
+    blue-4: "#e7f4f4"
+    # Browns
+    brown:   "#3e3d33"
+    brown-2: "#888676"
+    brown-3: "#bab9b3"
+    brown-4: "#e1e1df"
+    # Reds
+    red:   "#e52519"
+    red-2: "#f9afbb"
+    red-3: "#ffe1e7"
+    red-4: "#fef2f6"
+    # Neutrals
+    white: "#ffffff"
+
+  background: white
+  foreground: brown
+  primary:    green
+  secondary:  purple
+  info:       blue
+  warning:    yellow
+  danger:     red
+
 typography:
   fonts:
     - family: Libre Franklin
       source: google
+  base:
+    family: Libre Franklin
+  headings:
+    family: Libre Franklin
+    weight: 700
