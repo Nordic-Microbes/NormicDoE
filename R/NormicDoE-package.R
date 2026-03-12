@@ -24,7 +24,7 @@
 #' @importFrom shiny shinyApp fluidPage titlePanel sidebarLayout sidebarPanel
 #'   mainPanel tabsetPanel tabPanel selectInput sliderInput numericInput
 #'   textAreaInput textInput actionButton verbatimTextOutput plotOutput
-#'   renderText renderPlot renderPrint observeEvent observe reactive
+#'   renderText renderPlot renderPrint renderUI uiOutput observeEvent observe reactive
 #'   reactiveValues req outputOptions conditionalPanel showNotification
 #'   fluidRow column h4 hr br fileInput checkboxGroupInput radioButtons
 #'   updateSelectInput updateCheckboxGroupInput

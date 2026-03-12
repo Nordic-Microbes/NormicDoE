@@ -7,7 +7,7 @@ app_server <- function(init_design = NULL) {
   function(input, output, session) {
 
     # Reactive state: current doe_design (possibly pre-loaded)
-    rv <- shiny::reactiveValues(design = init_design, comparison_designs = list())
+    rv <- shiny::reactiveValues(design = init_design)
 
     # -------------------------------------------------------------------------
     # Design info panel
@@ -350,68 +350,40 @@ app_server <- function(init_design = NULL) {
       }
     })
     # -------------------------------------------------------------------------
-    # Comparison
     # -------------------------------------------------------------------------
-    shiny::observeEvent(input$add_compare_btn, {
+    # Comparison — fold change relative to reference
+    # -------------------------------------------------------------------------
+    output$reference_inputs <- shiny::renderUI({
       d <- rv$design
-      shiny::req(!is.null(d$model), input$compare_csv)
-      df <- tryCatch(
-        utils::read.csv(input$compare_csv$datapath, stringsAsFactors = FALSE),
-        error = function(e) {
-          shiny::showNotification(e$message, type = "error")
-          NULL
-        }
-      )
-      if (is.null(df)) return()
-      numeric_cols <- names(df)[vapply(df, is.numeric, logical(1L))]
-      if (length(numeric_cols) == 0L) {
-        shiny::showNotification("No numeric columns in CSV.", type = "error")
-        return()
-      }
-      resp_vals <- df[[numeric_cols[1]]]
-      if (length(resp_vals) != d$n_runs) {
-        shiny::showNotification(
-          paste0("CSV has ", length(resp_vals), " rows; design needs ",
-                 d$n_runs, "."),
-          type = "error"
+      shiny::req(!is.null(d$model))
+      lapply(d$factors, function(f) {
+        shiny::selectInput(
+          inputId  = paste0("ref_factor_", f),
+          label    = f,
+          choices  = as.character(d$level_values[[f]]),
+          selected = as.character(d$level_values[[f]][[1L]])
         )
-        return()
-      }
-      lbl <- trimws(input$compare_label)
-      if (nchar(lbl) == 0L)
-        lbl <- paste0("Sample ", length(rv$comparison_designs) + 2L)
-      nd <- tryCatch(
-        fit_model(d,
-                  response      = resp_vals,
-                  response_name = numeric_cols[1],
-                  interactions  = input$interactions_level),
+      })
+    })
+
+    output$fold_change_plot <- shiny::renderPlot({
+      d <- rv$design
+      shiny::req(!is.null(d$model))
+      ref_parts <- vapply(d$factors, function(f) {
+        val <- input[[paste0("ref_factor_", f)]]
+        shiny::req(!is.null(val))
+        paste0(f, "=", val)
+      }, character(1L))
+      reference_label <- paste(ref_parts, collapse = ", ")
+      fc <- tryCatch(
+        compute_fold_changes(d, reference_label),
         error = function(e) {
           shiny::showNotification(e$message, type = "error")
           NULL
         }
       )
-      if (is.null(nd)) return()
-      rv$comparison_designs[[lbl]] <- nd
-      shiny::showNotification(paste("Added sample:", lbl), type = "message")
-    })
-
-    output$compare_status <- shiny::renderPrint({
-      n <- length(rv$comparison_designs)
-      if (n == 0L)
-        cat("No comparison samples loaded.
-")
-      else
-        cat(n, "sample(s):", paste(names(rv$comparison_designs),
-                                   collapse = ", "), "
-")
-    })
-
-    output$comparison_plot <- shiny::renderPlot({
-      shiny::req(length(rv$comparison_designs) > 0L,
-                 !is.null(rv$design$model))
-      all_designs <- c(list(Primary = rv$design), rv$comparison_designs)
-      df <- do.call(compare_effects, all_designs)
-      plot_effect_comparison(df)
+      shiny::req(!is.null(fc))
+      plot_fold_changes(fc)
     })
   }
 }

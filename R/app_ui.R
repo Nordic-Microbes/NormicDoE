@@ -138,22 +138,9 @@ app_ui <- function(factors = character(0)) {
             shiny::br(),
             shiny::conditionalPanel(
               condition = "output.model_fitted",
-              shiny::h4("Add Comparison Sample"),
-              shiny::fileInput(
-                inputId = "compare_csv",
-                label   = "Upload response CSV:",
-                accept  = ".csv"
-              ),
-              shiny::textInput(
-                inputId = "compare_label",
-                label   = "Sample label:",
-                value   = ""
-              ),
-              shiny::actionButton("add_compare_btn", "Add Sample",
-                                  class = "btn-info"),
-              shiny::verbatimTextOutput("compare_status"),
-              shiny::hr(),
-              shiny::plotOutput("comparison_plot", height = "450px")
+              shiny::h4("Reference combination"),
+              shiny::uiOutput("reference_inputs"),
+              shiny::plotOutput("fold_change_plot", height = "450px")
             )
           )
         )
