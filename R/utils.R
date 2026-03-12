@@ -125,8 +125,8 @@ plot_main_effects <- function(design, factor_name) {
   means$level <- as.factor(means$level)
 
   ggplot2::ggplot(means, ggplot2::aes(x = .data$level, y = .data$mean_response, group = 1)) +
-    ggplot2::geom_point(size = 3) +
-    ggplot2::geom_line() +
+    ggplot2::geom_point(pch = 21, size = 3, fill = ggNormic::normic_colors$greens[[2]]) +
+    ggplot2::geom_line(col = ggNormic::normic_colors$greens[[2]]) +
     ggplot2::labs(
       title = paste("Main Effect:", factor_name),
       x = factor_name,
@@ -183,10 +183,11 @@ plot_interaction <- function(design, factor1, factor2,
       x     = .data[[factor1]],
       y     = .data$mean_response,
       color = .data[[factor2]],
+      fill = .data[[factor2]],
       group = .data[[factor2]]
     )
   ) +
-    ggplot2::geom_point(size = 3) +
+    ggplot2::geom_point(pch = 21, col = "black", size = 3) +
     ggplot2::geom_line() +
     ggplot2::labs(
       title = paste("Interaction:", paste(all_factors, collapse = " \u00d7 ")),
@@ -212,7 +213,7 @@ plot_interaction <- function(design, factor1, factor2,
 
   if (requireNamespace("ggNormic", quietly = TRUE)) {
     p <- tryCatch(
-      p + ggNormic::scale_color_normic_d(),
+      p + ggNormic::scale_color_normic_d(palette = "lights") + ggNormic::scale_fill_normic_d(palette = "lights"),
       error = function(e) p
     )
   }
@@ -248,7 +249,7 @@ plot_pareto <- function(design, alpha = 0.05) {
     )
     return(
       ggplot2::ggplot(coef_table,
-                      ggplot2::aes(x = .data$abs_t, y = .data$term)) +
+                      ggplot2::aes(x = .data$abs_t, y = .data$term), fill = ggNormic::normic_colors$greens[[2]]) +
         ggplot2::geom_bar(stat = "identity", fill = "steelblue") +
         ggplot2::labs(
           title   = "Pareto Chart of Standardized Effects",
@@ -266,8 +267,8 @@ plot_pareto <- function(design, alpha = 0.05) {
   t_crit <- stats::qt(1 - alpha / 2, df = df_resid)
 
   ggplot2::ggplot(coef_table, ggplot2::aes(x = .data$abs_t, y = .data$term)) +
-    ggplot2::geom_bar(stat = "identity", fill = "steelblue") +
-    ggplot2::geom_vline(xintercept = t_crit, linetype = "dashed", color = "red") +
+    ggplot2::geom_bar(stat = "identity", fill = ggNormic::normic_colors$greens[[2]]) +
+    ggplot2::geom_vline(xintercept = t_crit, linetype = "dashed", color = ggNormic::normic_colors$reds[[1]]) +
     ggplot2::labs(
       title   = "Pareto Chart of Standardized Effects",
       x       = "|Standardized Effect| (t-value)",
