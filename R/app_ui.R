@@ -100,12 +100,26 @@ app_ui <- function(factors = character(0)) {
           shiny::tabPanel(
             "Main Effects",
             shiny::br(),
-            shiny::selectInput(
-              inputId = "main_factor",
-              label   = "Select factor:",
-              choices = factors
+            shiny::radioButtons(
+              inputId  = "main_view",
+              label    = NULL,
+              choices  = c("Overview (all factors)" = "overview",
+                           "Single factor"          = "single"),
+              inline   = TRUE
             ),
-            shiny::plotOutput("main_effects_plot", height = "400px")
+            shiny::conditionalPanel(
+              condition = "input.main_view == 'overview'",
+              shiny::plotOutput("all_main_effects_plot", height = "400px")
+            ),
+            shiny::conditionalPanel(
+              condition = "input.main_view == 'single'",
+              shiny::selectInput(
+                inputId = "main_factor",
+                label   = "Select factor:",
+                choices = factors
+              ),
+              shiny::plotOutput("main_effects_plot", height = "400px")
+            )
           ),
           shiny::tabPanel(
             "Interactions",

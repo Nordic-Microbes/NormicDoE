@@ -3,3 +3,4 @@
 ^\.git$
 ^\.claude$
 ^\.github$
+^CLAUDE\.md$

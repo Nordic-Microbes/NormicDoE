@@ -268,6 +268,11 @@ app_server <- function(init_design = NULL) {
     # Visualizations
     # -------------------------------------------------------------------------
 
+    output$all_main_effects_plot <- shiny::renderPlot({
+      d <- fitted_design()
+      plot_all_main_effects(d)
+    })
+
     output$main_effects_plot <- shiny::renderPlot({
       d <- fitted_design()
       shiny::req(input$main_factor %in% d$factors)
