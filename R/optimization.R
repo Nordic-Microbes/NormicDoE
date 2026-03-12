@@ -89,6 +89,16 @@ optimize_response <- function(design, goal = "max", target = NULL,
     cat_grid <- data.frame(dummy__ = 1L)   # single row for all-numeric designs
   }
 
+  # Separate numeric factors into free (range > 0) and fixed (single level)
+  is_free <- vapply(numeric_factors, function(f) {
+    r <- ranges[[f]]; r[1] < r[2]
+  }, logical(1L))
+  free_factors  <- numeric_factors[ is_free]
+  fixed_factors <- numeric_factors[!is_free]
+  free_ranges   <- ranges[is_free]
+  fixed_values  <- lapply(fixed_factors, function(f) ranges[[f]][1])
+  names(fixed_values) <- fixed_factors
+
   best_obj      <- Inf
   best_settings <- NULL
 
@@ -99,9 +109,12 @@ optimize_response <- function(design, goal = "max", target = NULL,
     else
       list()
 
-    if (length(numeric_factors) == 0L) {
-      # All-categorical design: enumerate and pick best
-      settings <- cat_row[design$factors]
+    # Merge fixed numeric values with categorical for this iteration
+    fixed_row <- c(cat_row, fixed_values)
+
+    if (length(free_factors) == 0L) {
+      # No free numeric factors: evaluate directly (all-categorical or all-fixed)
+      settings <- c(fixed_row, list())[design$factors]
       pred     <- predict_fn(settings)
       obj_val  <- switch(goal,
         max    = -pred,
@@ -113,14 +126,14 @@ optimize_response <- function(design, goal = "max", target = NULL,
         best_settings <- settings
       }
     } else {
-      # Mixed or all-numeric: optimise over numeric factors.
-      # Use local() so cat_row is captured by value, not by reference.
+      # Optimise over free numeric factors.
+      # Use local() so fixed_row is captured by value, not by reference.
       obj_fn <- local({
-        cat_row_ <- cat_row
-        function(x_num) {
-          num_list <- stats::setNames(as.list(x_num), numeric_factors)
-          settings <- c(cat_row_, num_list)[design$factors]
-          pred <- predict_fn(settings)
+        fixed_row_ <- fixed_row
+        function(x_free) {
+          free_list <- stats::setNames(as.list(x_free), free_factors)
+          settings  <- c(fixed_row_, free_list)[design$factors]
+          pred      <- predict_fn(settings)
           switch(goal,
             max    = -pred,
             min    =  pred,
@@ -130,16 +143,16 @@ optimize_response <- function(design, goal = "max", target = NULL,
       })
 
       # Grid search to find a good starting point
-      grid_size  <- if (length(numeric_factors) > 3L) 5L else 11L
-      grid_lists <- lapply(ranges, function(r) seq(r[1], r[2], length.out = grid_size))
+      grid_size  <- if (length(free_factors) > 3L) 5L else 11L
+      grid_lists <- lapply(free_ranges, function(r) seq(r[1], r[2], length.out = grid_size))
       grid       <- expand.grid(grid_lists)
 
       grid_vals <- apply(grid, 1, obj_fn)
       best_idx  <- which.min(grid_vals)
       x0        <- unlist(grid[best_idx, ])
 
-      lower <- sapply(ranges, `[`, 1)
-      upper <- sapply(ranges, `[`, 2)
+      lower <- sapply(free_ranges, `[`, 1)
+      upper <- sapply(free_ranges, `[`, 2)
 
       opt <- stats::optim(
         par    = x0,
@@ -150,9 +163,9 @@ optimize_response <- function(design, goal = "max", target = NULL,
       )
 
       if (opt$value < best_obj) {
-        best_obj     <- opt$value
-        num_settings <- stats::setNames(as.list(opt$par), numeric_factors)
-        best_settings <- c(cat_row, num_settings)[design$factors]
+        best_obj      <- opt$value
+        free_settings <- stats::setNames(as.list(opt$par), free_factors)
+        best_settings <- c(fixed_row, free_settings)[design$factors]
       }
     }
   }

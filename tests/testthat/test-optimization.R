@@ -86,3 +86,25 @@ test_that("optimize_response handles mixed numeric + categorical factors", {
   expect_true(res$optimal_settings[["Buffer"]] %in% c("MRD", "dH2O"))
   expect_type(res$predicted_response, "double")
 })
+
+test_that("optimize_response handles numeric factor with single level (zero range)", {
+  # Simulate a design where one numeric factor has only one value
+  dm <- data.frame(
+    Time = c(2, 2, 4, 4),
+    Temp = c(20, 20, 20, 20),   # fixed at 20
+    stringsAsFactors = FALSE
+  )
+  d <- NormicDoE:::new_doe_design(
+    factors       = c("Time", "Temp"),
+    levels        = c(2L, 1L),
+    level_values  = list(Time = c(2, 4), Temp = c(20)),
+    design_matrix = dm,
+    coded_matrix  = NULL,
+    coded         = FALSE,
+    design_type   = "full_factorial_multilevel"
+  )
+  d <- fit_model(d, response = c(10, 10, 20, 20), interactions = "none")
+  res <- optimize_response(d, goal = "max")
+  expect_equal(res$optimal_settings[["Temp"]], 20)
+  expect_type(res$predicted_response, "double")
+})
