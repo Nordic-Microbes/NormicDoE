@@ -4,7 +4,11 @@
 #' @param factors Character vector of factor names (used to populate selectors).
 #' @noRd
 app_ui <- function(factors = character(0)) {
+  brand_yml <- system.file("brand.yml", package = "NormicDoE")
+  normic_theme <- bslib::bs_theme(brand = brand_yml)
+
   shiny::fluidPage(
+    theme = normic_theme,
     shiny::titlePanel("NormicDoE \u2014 Design of Experiments Analysis"),
 
     shiny::sidebarLayout(

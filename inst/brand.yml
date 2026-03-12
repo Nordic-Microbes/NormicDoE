@@ -1,0 +1,18 @@
+meta:
+  name: Normic
+color:
+  palette:
+    green:  "#006f32"
+    yellow: "#ffcd00"
+    purple: "#946aab"
+    blue:   "#2e5558"
+    brown:  "#3e3d33"
+    red:    "#e52519"
+  foreground: "#3e3d33"
+  background: "#ffffff"
+  primary: "#006f32"
+  secondary: "#2e5558"
+typography:
+  fonts:
+    - family: Libre Franklin
+      source: google
