@@ -50,7 +50,7 @@ app_ui <- function(factors = character(0)) {
             choices  = character(0)
           )
         ),
-        shiny::actionButton("load_csv_btn", "Load from CSV", class = "btn-info"),
+        shiny::actionButton("load_csv_btn", "Load from CSV", class = "btn-primary"),
         shiny::hr(),
 
         # --- Paste Response ---
