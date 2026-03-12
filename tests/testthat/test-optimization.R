@@ -48,7 +48,7 @@ test_that("predicted_response at max is >= predicted at any design point", {
   expect_true(res$predicted_response >= max(preds) - 1e-6)
 })
 
-test_that("optimize_response errors clearly on categorical factor", {
+test_that("optimize_response handles categorical factor by enumeration", {
   # Simulate a CSV-loaded design where level_values contains character strings
   dm <- data.frame(A = c("low", "high"), stringsAsFactors = FALSE)
   d <- NormicDoE:::new_doe_design(
@@ -61,5 +61,28 @@ test_that("optimize_response errors clearly on categorical factor", {
     design_type   = "full_factorial_multilevel"
   )
   d <- fit_model(d, response = c(1, 2), interactions = "none")
-  expect_error(optimize_response(d), regexp = "non-numeric")
+  res <- optimize_response(d, goal = "max")
+  expect_equal(res$optimal_settings[["A"]], "high")
+  expect_type(res$predicted_response, "double")
+})
+
+test_that("optimize_response handles mixed numeric + categorical factors", {
+  dm <- data.frame(
+    Buffer = c("MRD", "dH2O", "MRD", "dH2O"),
+    Time   = c(2, 2, 4, 4),
+    stringsAsFactors = FALSE
+  )
+  d <- NormicDoE:::new_doe_design(
+    factors       = c("Buffer", "Time"),
+    levels        = c(2L, 2L),
+    level_values  = list(Buffer = c("MRD", "dH2O"), Time = c(2, 4)),
+    design_matrix = dm,
+    coded_matrix  = NULL,
+    coded         = FALSE,
+    design_type   = "full_factorial_multilevel"
+  )
+  d <- fit_model(d, response = c(10, 8, 20, 15), interactions = "none")
+  res <- optimize_response(d, goal = "max")
+  expect_true(res$optimal_settings[["Buffer"]] %in% c("MRD", "dH2O"))
+  expect_type(res$predicted_response, "double")
 })
