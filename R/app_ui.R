@@ -115,7 +115,7 @@ app_ui <- function(factors = character(0)) {
                     "Overview (all factors)",
                     value = "overview",
                     shiny::br(),
-                    shiny::plotOutput("all_main_effects_plot", height = "400px")
+                    plotly::plotlyOutput("all_main_effects_plot", height = "400px")
                   ),
                   shiny::tabPanel(
                     "Single factor",
@@ -126,7 +126,7 @@ app_ui <- function(factors = character(0)) {
                       label   = "Select factor:",
                       choices = factors
                     ),
-                    shiny::plotOutput("main_effects_plot", height = "400px")
+                    plotly::plotlyOutput("main_effects_plot", height = "400px")
                   )
                 )
               )
@@ -135,13 +135,21 @@ app_ui <- function(factors = character(0)) {
           shiny::tabPanel(
             "Interactions",
             shiny::br(),
-            shiny::checkboxGroupInput(
-              inputId  = "int_factors",
-              label    = "Select 2\u20134 factors (1st = x-axis, 2nd = lines, 3rd = facet, 4th = facet grid):",
-              choices  = factors,
-              selected = factors[seq_len(min(2L, length(factors)))]
+            shiny::fluidRow(
+              shiny::column(4,
+                shiny::selectizeInput(
+                  inputId  = "int_factors",
+                  label    = "Select 2\u20134 factors:",
+                  choices  = factors,
+                  selected = factors[seq_len(min(2L, length(factors)))],
+                  multiple = TRUE
+                )
+              ),
+              shiny::column(8,
+                shiny::uiOutput("int_role_selectors")
+              )
             ),
-            shiny::plotOutput("interaction_plot", height = "450px")
+            plotly::plotlyOutput("interaction_plot", height = "450px")
           ),
           shiny::tabPanel(
             "Pareto Diagram",
@@ -151,12 +159,14 @@ app_ui <- function(factors = character(0)) {
               label   = "Significance level (\u03b1):",
               min = 0.01, max = 0.20, value = 0.05, step = 0.01
             ),
-            shiny::plotOutput("pareto_plot", height = "450px")
+            plotly::plotlyOutput("pareto_plot", height = "450px")
           ),
           shiny::tabPanel(
             "Model Summary",
             shiny::br(),
-            shiny::verbatimTextOutput("model_summary_text")
+            shiny::uiOutput("model_summary_stats"),
+            shiny::br(),
+            gt::gt_output("model_summary_gt")
           ),
           shiny::tabPanel(
             "Comparison",
@@ -165,7 +175,9 @@ app_ui <- function(factors = character(0)) {
               condition = "output.model_fitted",
               shiny::h4("Reference combination"),
               shiny::uiOutput("reference_inputs"),
-              shiny::plotOutput("fold_change_plot", height = "450px")
+              shiny::br(),
+              shiny::checkboxInput("fc_show_y_labels", "Show y-axis labels", value = FALSE),
+              plotly::plotlyOutput("fold_change_plot", height = "450px")
             )
           )
         )

@@ -154,7 +154,7 @@ app_server <- function(init_design = NULL) {
         shiny::updateSelectInput(session, "main_factor",
                                  choices  = factor_cols,
                                  selected = factor_cols[1])
-        shiny::updateCheckboxGroupInput(
+        shiny::updateSelectizeInput(
           session, "int_factors",
           choices  = factor_cols,
           selected = factor_cols[seq_len(min(2L, length(factor_cols)))]
@@ -268,64 +268,143 @@ app_server <- function(init_design = NULL) {
     # Visualizations
     # -------------------------------------------------------------------------
 
-    output$all_main_effects_plot <- shiny::renderPlot({
-      d <- fitted_design()
-      plot_all_main_effects(d)
+    output$all_main_effects_plot <- plotly::renderPlotly({
+      p <- plot_all_main_effects(fitted_design())
+      plotly::ggplotly(p, tooltip = "text")
     })
 
-    output$main_effects_plot <- shiny::renderPlot({
+    output$main_effects_plot <- plotly::renderPlotly({
       d <- fitted_design()
       shiny::req(input$main_factor %in% d$factors)
-      plot_main_effects(d, input$main_factor)
+      p <- plot_main_effects(d, input$main_factor)
+      plotly::ggplotly(p, tooltip = "text")
     })
 
-    output$interaction_plot <- shiny::renderPlot({
-      d    <- fitted_design()
+    # -------------------------------------------------------------------------
+    # Interactions: role-selector UI
+    # -------------------------------------------------------------------------
+    output$int_role_selectors <- shiny::renderUI({
       fsel <- input$int_factors
-      shiny::req(
-        length(fsel) >= 2L,
-        length(fsel) <= 4L,
-        all(fsel %in% d$factors),
-        length(unique(fsel)) == length(fsel)
+      shiny::req(length(fsel) >= 2L)
+      row1 <- shiny::fluidRow(
+        shiny::column(6, shiny::selectInput("int_role_x",    "X-axis:",       choices = fsel, selected = fsel[1])),
+        shiny::column(6, shiny::selectInput("int_role_line", "Line/color:",   choices = fsel, selected = fsel[2]))
       )
-      plot_interaction(
-        d,
-        factor1 = fsel[1],
-        factor2 = fsel[2],
-        factor3 = if (length(fsel) >= 3L) fsel[3] else NULL,
-        factor4 = if (length(fsel) >= 4L) fsel[4] else NULL
+      if (length(fsel) <= 2L) return(row1)
+      row2 <- shiny::fluidRow(
+        shiny::column(6, shiny::selectInput("int_role_facet", "Facet (rows):", choices = fsel, selected = fsel[3])),
+        if (length(fsel) >= 4L)
+          shiny::column(6, shiny::selectInput("int_role_grid", "Facet (cols):", choices = fsel, selected = fsel[4]))
       )
+      shiny::tagList(row1, row2)
     })
 
-    output$pareto_plot <- shiny::renderPlot({
+    output$interaction_plot <- plotly::renderPlotly({
+      d  <- fitted_design()
+      f1 <- input$int_role_x
+      f2 <- input$int_role_line
+      shiny::req(
+        length(input$int_factors) >= 2L,
+        !is.null(f1), !is.null(f2),
+        f1 %in% d$factors, f2 %in% d$factors,
+        f1 != f2
+      )
+      f3 <- if (!is.null(input$int_role_facet) &&
+                  input$int_role_facet %in% d$factors &&
+                  input$int_role_facet != f1 &&
+                  input$int_role_facet != f2)
+              input$int_role_facet else NULL
+      f4 <- if (!is.null(f3) &&
+                  !is.null(input$int_role_grid) &&
+                  input$int_role_grid %in% d$factors &&
+                  input$int_role_grid != f1 &&
+                  input$int_role_grid != f2 &&
+                  input$int_role_grid != f3)
+              input$int_role_grid else NULL
+      p    <- plot_interaction(d, factor1 = f1, factor2 = f2, factor3 = f3, factor4 = f4)
+      p_pl <- plotly::ggplotly(p, tooltip = "text")
+
+      # Deduplicate legend entries across facet panels.
+      # ggplotly names faceted traces "(color_val, facet_idx)" — extract just
+      # the color part (before the first comma) as the dedup key.  Set a shared
+      # legendgroup per color level so clicking the legend item toggles all
+      # related traces (lines + points).  Hide pure-line traces so the legend
+      # symbol is always the point marker.
+      seen_keys <- character(0)
+      for (i in seq_along(p_pl$x$data)) {
+        tr   <- p_pl$x$data[[i]]
+        nm   <- if (is.null(tr$name)) "" else tr$name
+        key  <- trimws(sub(",.*", "", gsub("[()]", "", nm)))
+        mode <- if (is.null(tr$mode)) "" else tr$mode
+
+        if (nzchar(key)) p_pl$x$data[[i]]$legendgroup <- key
+
+        is_line_only <- nzchar(mode) && grepl("lines", mode) && !grepl("markers", mode)
+        if (is_line_only || key == "") {
+          p_pl$x$data[[i]]$showlegend <- FALSE
+        } else if (key %in% seen_keys) {
+          p_pl$x$data[[i]]$showlegend <- FALSE
+        } else {
+          seen_keys <- c(seen_keys, key)
+          p_pl$x$data[[i]]$name <- key
+        }
+      }
+      p_pl
+    })
+
+    output$pareto_plot <- plotly::renderPlotly({
       d <- fitted_design()
-      withCallingHandlers(
+      p <- withCallingHandlers(
         plot_pareto(d, alpha = input$pareto_alpha),
         warning = function(w) {
           shiny::showNotification(conditionMessage(w), type = "warning", duration = 8)
           invokeRestart("muffleWarning")
         }
       )
+      plotly::ggplotly(p, tooltip = "text")
     })
 
-    output$model_summary_text <- shiny::renderPrint({
-      d  <- fitted_design()
-      ms <- model_summary(d)
+    # -------------------------------------------------------------------------
+    # Model Summary — gt table
+    # -------------------------------------------------------------------------
+    output$model_summary_stats <- shiny::renderUI({
+      ms <- model_summary(fitted_design())
+      shiny::tagList(
+        if (isTRUE(ms$is_saturated))
+          shiny::div(
+            class = "alert alert-warning",
+            "Model is saturated (df_residual = 0). Standard errors and p-values are undefined. ",
+            "Use 'Two-way only' or 'Main effects only' interactions, or add replicates."
+          ),
+        shiny::p(sprintf(
+          "R\u00b2 = %.4f  |  Adj R\u00b2 = %.4f  |  RMSE = %.4f  |  F = %.4f (p = %.4g)  |  Runs / df_res = %d / %d",
+          ms$r_squared, ms$adj_r_squared, ms$rmse,
+          ms$f_statistic, ms$f_p_value,
+          ms$n_runs, ms$degrees_of_freedom
+        ))
+      )
+    })
 
-      if (isTRUE(ms$is_saturated)) {
-        cat("WARNING: Model is saturated (df_residual = 0).\n")
-        cat("Standard errors and p-values are undefined.\n")
-        cat("Fix: use 'Two-way only' or 'Main effects only' interactions,\n")
-        cat("     or add replicates to the design.\n\n")
-      }
-
-      cat(sprintf("R\u00b2            : %.4f\n", ms$r_squared))
-      cat(sprintf("Adj. R\u00b2      : %.4f\n", ms$adj_r_squared))
-      cat(sprintf("RMSE          : %.4f\n", ms$rmse))
-      cat(sprintf("F-statistic   : %.4f (p = %.4g)\n", ms$f_statistic, ms$f_p_value))
-      cat(sprintf("Runs / df_res : %d / %d\n\n", ms$n_runs, ms$degrees_of_freedom))
-      cat("Effects table:\n")
-      print(ms$effects_table, digits = 4, row.names = FALSE)
+    output$model_summary_gt <- gt::render_gt({
+      ms  <- model_summary(fitted_design())
+      tbl <- ms$effects_table
+      gt::gt(tbl) |>
+        gt::tab_header(title = "Effects Table") |>
+        gt::cols_label(
+          term      = "Term",
+          effect    = "Effect",
+          std_error = "Std Error",
+          t_value   = "t-value",
+          p_value   = "p-value",
+          significant = "Sig."
+        ) |>
+        gt::fmt_number(columns = c("effect", "std_error", "t_value"), decimals = 4) |>
+        gt::fmt_number(columns = "p_value", decimals = 4) |>
+        gt::sub_missing(missing_text = "\u2014") |>
+        gt::tab_style(
+          style     = gt::cell_text(weight = "bold"),
+          locations = gt::cells_body(rows = significant == TRUE)
+        )
     })
 
     # -------------------------------------------------------------------------
@@ -354,24 +433,35 @@ app_server <- function(init_design = NULL) {
         })
       }
     })
-    # -------------------------------------------------------------------------
+
     # -------------------------------------------------------------------------
     # Comparison — fold change relative to reference
     # -------------------------------------------------------------------------
     output$reference_inputs <- shiny::renderUI({
       d <- rv$design
       shiny::req(!is.null(d$model))
-      lapply(d$factors, function(f) {
-        shiny::selectInput(
-          inputId  = paste0("ref_factor_", f),
-          label    = f,
-          choices  = as.character(d$level_values[[f]]),
-          selected = as.character(d$level_values[[f]][[1L]])
+      n      <- length(d$factors)
+      n_cols <- max(1L, ceiling(sqrt(n)))
+      col_w  <- 12L %/% n_cols
+
+      rows_list <- split(d$factors, ceiling(seq_along(d$factors) / n_cols))
+      lapply(rows_list, function(row_factors) {
+        shiny::fluidRow(
+          lapply(row_factors, function(f) {
+            shiny::column(col_w,
+              shiny::selectInput(
+                inputId  = paste0("ref_factor_", f),
+                label    = f,
+                choices  = as.character(d$level_values[[f]]),
+                selected = as.character(d$level_values[[f]][[1L]])
+              )
+            )
+          })
         )
       })
     })
 
-    output$fold_change_plot <- shiny::renderPlot({
+    output$fold_change_plot <- plotly::renderPlotly({
       d <- rv$design
       shiny::req(!is.null(d$model))
       ref_parts <- vapply(d$factors, function(f) {
@@ -388,7 +478,9 @@ app_server <- function(init_design = NULL) {
         }
       )
       shiny::req(!is.null(fc))
-      plot_fold_changes(fc)
+      show_y <- if (is.null(input$fc_show_y_labels)) TRUE else input$fc_show_y_labels
+      p <- plot_fold_changes(fc, show_y_labels = show_y)
+      plotly::ggplotly(p, tooltip = "text")
     })
   }
 }

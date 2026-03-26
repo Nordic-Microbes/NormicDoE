@@ -66,11 +66,14 @@ compute_fold_changes <- function(design, reference_label) {
 #' Plot fold changes as a horizontal barplot ordered by fold change
 #'
 #' Draws a horizontal bar chart where each bar represents a treatment
-#' combination's mean fold change relative to the reference (shown in grey).
+#' combination's mean fold change relative to the reference (shown in purple).
 #' When replicates are present, individual run fold changes are overlaid as
-#' points.
+#' points.  The maximum fold change value is added as an extra break on the
+#' x-axis and is visible in the hover tooltip.
 #'
 #' @param fc_df A data frame from [compute_fold_changes()].
+#' @param show_y_labels Logical. When `FALSE`, the y-axis (combination labels)
+#'   text is hidden. Default `FALSE`.
 #' @return A ggplot2 object.
 #' @examples
 #' d <- full_factorial(
@@ -82,27 +85,51 @@ compute_fold_changes <- function(design, reference_label) {
 #' fc <- compute_fold_changes(d, reference_label = "A=-1, B=-1")
 #' plot_fold_changes(fc)
 #' @export
-plot_fold_changes <- function(fc_df) {
+plot_fold_changes <- function(fc_df, show_y_labels = FALSE) {
   summ         <- unique(fc_df[, c("label", "mean_fold_change", "is_reference")])
   ord          <- summ$label[order(summ$mean_fold_change)]
   summ$label   <- factor(summ$label,  levels = ord)
   fc_df$label  <- factor(fc_df$label, levels = ord)
+
+  # Pre-label the fill aesthetic so plotly inherits the proper legend names
+  summ$fill_label <- factor(
+    summ$is_reference,
+    levels = c(FALSE, TRUE),
+    labels = c("Sample", "Reference")
+  )
+
+  # Hover text for bars
+  summ$hover_text <- sprintf(
+    "<b>%s</b><br>Mean fold change: %s\u00d7",
+    summ$label, .fmt_val(summ$mean_fold_change)
+  )
+
+  # Max fold change axis break (value also visible in hover and on axis)
+  max_fc      <- max(summ$mean_fold_change)
+  base_breaks <- pretty(c(min(summ$mean_fold_change, 0), max_fc))
+  all_breaks  <- sort(unique(c(base_breaks, round(max_fc, 3L))))
 
   p <- ggplot2::ggplot(
     summ,
     ggplot2::aes(
       x    = .data$label,
       y    = .data$mean_fold_change,
-      fill = .data$is_reference
+      fill = .data$fill_label,
+      text = .data$hover_text
     )
   ) +
     ggplot2::geom_bar(stat = "identity") +
     ggplot2::geom_hline(yintercept = 1, linetype = "dashed", colour = "grey40") +
     ggplot2::coord_flip() +
     ggplot2::scale_fill_manual(
-      values = c("FALSE" = ggNormic::normic_colors$greens[[2]], "TRUE" = ggNormic::normic_colors$purples[[2]]),
-      labels = c("FALSE" = "Sample",    "TRUE" = "Reference"),
+      values = c("Sample"    = ggNormic::normic_colors$greens[[2]],
+                 "Reference" = ggNormic::normic_colors$purples[[2]]),
       name   = NULL
+    ) +
+    ggplot2::scale_y_continuous(
+      labels = .fmt_val,
+      breaks = all_breaks,
+      expand = ggplot2::expansion(mult = c(0, 0.15))
     ) +
     ggplot2::labs(
       title = "Fold Change Relative to Reference",
@@ -122,5 +149,9 @@ plot_fold_changes <- function(fc_df) {
       position    = ggplot2::position_jitter(height = 0.1, seed = 1L)
     )
   }
+
+  if (!show_y_labels)
+    p <- p + ggplot2::theme(axis.text.y = ggplot2::element_blank())
+
   p
 }

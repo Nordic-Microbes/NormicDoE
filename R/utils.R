@@ -1,7 +1,29 @@
 # Internal utility functions for NormicDoE
 
-# Suppress R CMD check note for ggplot2 .data pronoun
-utils::globalVariables(".data")
+# Suppress R CMD check notes for tidy-eval bare names
+utils::globalVariables(c(".data", "significant"))
+
+# ---------------------------------------------------------------------------
+# Number formatter
+# ---------------------------------------------------------------------------
+
+# Format a number for display: values >= 1e4 or < 1e-3 (non-zero) use
+# scientific notation with 2 decimal places; normal-range values use adaptive
+# fixed notation.  Designed for use as a ggplot2 `labels` function and in
+# hover-text sprintf() calls.
+.fmt_val <- function(x) {
+  ifelse(
+    !is.finite(x), as.character(x),
+    ifelse(
+      abs(x) >= 1e4 | (x != 0 & abs(x) < 1e-3),
+      sprintf("%.2e", x),
+      ifelse(abs(x) >= 100, sprintf("%.0f",  x),
+      ifelse(abs(x) >= 10,  sprintf("%.1f",  x),
+      ifelse(abs(x) >= 1,   sprintf("%.2f",  x),
+                             sprintf("%.3f",  x))))
+    )
+  )
+}
 
 # ---------------------------------------------------------------------------
 # Formula builder
@@ -124,9 +146,16 @@ plot_main_effects <- function(design, factor_name) {
   names(means) <- c("level", "mean_response")
   means$level <- as.factor(means$level)
 
-  ggplot2::ggplot(means, ggplot2::aes(x = .data$level, y = .data$mean_response, group = 1)) +
+  means$hover_text <- sprintf(
+    "<b>%s</b><br>Level: %s<br>Mean %s: %s",
+    factor_name, means$level, design$response_name, .fmt_val(means$mean_response)
+  )
+
+  ggplot2::ggplot(means, ggplot2::aes(x = .data$level, y = .data$mean_response,
+                                       group = 1, text = .data$hover_text)) +
     ggplot2::geom_point(pch = 21, size = 3, fill = ggNormic::normic_colors$greens[[2]]) +
     ggplot2::geom_line(col = ggNormic::normic_colors$greens[[2]]) +
+    ggplot2::scale_y_continuous(labels = .fmt_val) +
     ggplot2::labs(
       title = paste("Main Effect:", factor_name),
       x = factor_name,
@@ -135,6 +164,11 @@ plot_main_effects <- function(design, factor_name) {
     tryCatch(
       if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
       error = function(e) ggplot2::theme_bw()
+    ) +
+    ggplot2::theme(
+      plot.margin  = ggplot2::margin(12, 16, 12, 12, "pt"),
+      axis.title.x = ggplot2::element_text(margin = ggplot2::margin(t = 10, unit = "pt")),
+      axis.title.y = ggplot2::element_text(margin = ggplot2::margin(r = 10, unit = "pt"))
     )
 }
 
@@ -163,19 +197,32 @@ plot_all_main_effects <- function(design) {
   long_df$level  <- as.character(long_df$level)
   long_df$factor <- factor(long_df$factor, levels = design$factors)
 
+  long_df$hover_text <- sprintf(
+    "<b>%s</b><br>Level: %s<br>Mean %s: %s",
+    long_df$factor, long_df$level, design$response_name, .fmt_val(long_df$mean_response)
+  )
+
   ggplot2::ggplot(
     long_df,
-    ggplot2::aes(x = .data$level, y = .data$mean_response, group = 1)
+    ggplot2::aes(x = .data$level, y = .data$mean_response, group = 1, text = .data$hover_text)
   ) +
     ggplot2::geom_point(pch = 21, size = 3, fill = ggNormic::normic_colors$greens[[2]]) +
     ggplot2::geom_line(col = ggNormic::normic_colors$greens[[2]]) +
     ggplot2::facet_wrap(~ factor, scales = "free_x") +
+    ggplot2::scale_y_continuous(labels = .fmt_val) +
     ggplot2::labs(
       title = "All Main Effects",
       x     = "Level",
       y     = design$response_name
     ) +
-    ggplot2::theme_bw()
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      panel.spacing  = grid::unit(1.5, "lines"),
+      plot.margin    = ggplot2::margin(12, 16, 12, 12, "pt"),
+      axis.title.x   = ggplot2::element_text(margin = ggplot2::margin(t = 10, unit = "pt")),
+      axis.title.y   = ggplot2::element_text(margin = ggplot2::margin(r = 10, unit = "pt")),
+      strip.text     = ggplot2::element_text(margin = ggplot2::margin(b = 8, unit = "pt"))
+    )
 }
 
 #' Interaction plot for two to four factors
@@ -215,6 +262,13 @@ plot_interaction <- function(design, factor1, factor2,
   )
   names(means)[ncol(means)] <- "mean_response"
 
+  means$hover_text <- vapply(seq_len(nrow(means)), function(i) {
+    parts <- sapply(all_factors, function(f) sprintf("%s = %s", f, means[[f]][i]))
+    paste0(paste(parts, collapse = "<br>"),
+           sprintf("<br>Mean %s: %s", design$response_name,
+                   .fmt_val(means$mean_response[i])))
+  }, character(1L))
+
   means[[factor2]] <- as.factor(means[[factor2]])
 
   p <- ggplot2::ggplot(
@@ -223,12 +277,14 @@ plot_interaction <- function(design, factor1, factor2,
       x     = .data[[factor1]],
       y     = .data$mean_response,
       color = .data[[factor2]],
-      fill = .data[[factor2]],
-      group = .data[[factor2]]
+      fill  = .data[[factor2]],
+      group = .data[[factor2]],
+      text  = .data$hover_text
     )
   ) +
     ggplot2::geom_point(pch = 21, col = "black", size = 3) +
     ggplot2::geom_line() +
+    ggplot2::scale_y_continuous(labels = .fmt_val) +
     ggplot2::labs(
       title = paste("Interaction:", paste(all_factors, collapse = " \u00d7 ")),
       x     = factor1,
@@ -277,8 +333,26 @@ plot_pareto <- function(design, alpha = 0.05) {
   coef_table$term  <- rownames(coef_table)
   coef_table       <- coef_table[coef_table$term != "(Intercept)", , drop = FALSE]
   coef_table$abs_t <- abs(coef_table[, "t value"])
-  coef_table       <- coef_table[order(coef_table$abs_t, decreasing = FALSE), ]
-  coef_table$term  <- factor(coef_table$term, levels = coef_table$term)
+
+  # Hover text (graceful for saturated models where t/p are NaN)
+  t_vals <- coef_table[, "t value"]
+  p_col  <- "Pr(>|t|)"
+  p_vals <- if (p_col %in% names(coef_table)) coef_table[, p_col] else rep(NA_real_, nrow(coef_table))
+  coef_table$hover_text <- sprintf(
+    "<b>%s</b><br>Effect: %s<br>t-value: %s<br>p-value: %s",
+    coef_table$term,
+    .fmt_val(coef_table[, "Estimate"]),
+    ifelse(is.nan(t_vals) | is.na(t_vals), "N/A", .fmt_val(t_vals)),
+    ifelse(is.na(p_vals) | is.nan(p_vals), "N/A", .fmt_val(p_vals))
+  )
+
+  coef_table <- coef_table[order(coef_table$abs_t, decreasing = FALSE), ]
+  coef_table$term <- factor(coef_table$term, levels = coef_table$term)
+
+  normic_theme <- tryCatch(
+    if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
+    error = function(e) ggplot2::theme_bw()
+  )
 
   if (df_resid <= 0L) {
     warning(
@@ -289,35 +363,34 @@ plot_pareto <- function(design, alpha = 0.05) {
     )
     return(
       ggplot2::ggplot(coef_table,
-                      ggplot2::aes(x = .data$abs_t, y = .data$term), fill = ggNormic::normic_colors$greens[[2]]) +
-        ggplot2::geom_bar(stat = "identity", fill = "steelblue") +
+                      ggplot2::aes(x = .data$abs_t, y = .data$term,
+                                   text = .data$hover_text)) +
+        ggplot2::geom_bar(stat = "identity", fill = ggNormic::normic_colors$greens[[2]]) +
+        ggplot2::scale_x_continuous(labels = .fmt_val) +
         ggplot2::labs(
-          title   = "Pareto Chart of Standardized Effects",
-          x       = "|Standardized Effect| (t-value)",
+          title   = "Pareto Chart of Effects",
+          x       = "|t-value|",
           y       = "Term",
           caption = "Saturated model \u2014 no significance line (df_residual = 0)"
         ) +
-        tryCatch(
-      if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
-      error = function(e) ggplot2::theme_bw()
-    )
+        normic_theme
     )
   }
 
   t_crit <- stats::qt(1 - alpha / 2, df = df_resid)
 
-  ggplot2::ggplot(coef_table, ggplot2::aes(x = .data$abs_t, y = .data$term)) +
+  ggplot2::ggplot(coef_table,
+                  ggplot2::aes(x = .data$abs_t, y = .data$term,
+                               text = .data$hover_text)) +
     ggplot2::geom_bar(stat = "identity", fill = ggNormic::normic_colors$greens[[2]]) +
-    ggplot2::geom_vline(xintercept = t_crit, linetype = "dashed", color = ggNormic::normic_colors$reds[[1]]) +
+    ggplot2::geom_vline(xintercept = t_crit, linetype = "dashed",
+                        color = ggNormic::normic_colors$reds[[1]]) +
+    ggplot2::scale_x_continuous(labels = .fmt_val) +
     ggplot2::labs(
-      title   = "Pareto Chart of Standardized Effects",
-      x       = "|Standardized Effect| (t-value)",
+      title   = "Pareto Chart of Effects",
+      x       = "|t-value|",
       y       = "Term",
-      caption = paste0("Red line = t\u2080.", round(alpha / 2, 3),
-                       " (df = ", df_resid, ")")
+      caption = paste0("Red line = t\u2080.", round(alpha / 2, 3), " (df = ", df_resid, ")")
     ) +
-    tryCatch(
-      if (requireNamespace("ggNormic", quietly = TRUE)) ggNormic::theme_normic() else ggplot2::theme_bw(),
-      error = function(e) ggplot2::theme_bw()
-    )
+    normic_theme
 }
